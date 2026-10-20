@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DROD: Dual-Ratio Ordered Dropout</title>
+  <meta name="description" content="DROD: Dual-Ratio Ordered Dropout for Federated Continual Learning on Heterogeneous Devices. Berk Sezer and Özgür Soysal, 2026.">
+  <meta property="og:title" content="DROD: Dual-Ratio Ordered Dropout for Federated Continual Learning on Heterogeneous Devices">
+  <meta property="og:description" content="Ordered Dropout on two independent ratios of a residual block: the shortcut and the branch.">
+  <meta property="og:image" content="https://dr-od.github.io/figures/block_drod.webp">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #ffffff; --ink: #0b1220; --body: #1e293b; --muted: #475569; --line: #e2e8f0; --chip: #f1f5f9;
+      --accent: #6d28d9; --accent-soft: rgba(109, 40, 217, .07);
+      --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0d1b2a; --ink: #ffffff; --body: #e3eaf2; --muted: #9fb3c8; --line: #1f3347; --chip: #132739;
+        --accent: #b9a2ff; --accent-soft: rgba(185, 162, 255, .09);
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #0d1b2a; --ink: #ffffff; --body: #e3eaf2; --muted: #9fb3c8; --line: #1f3347; --chip: #132739;
+      --accent: #b9a2ff; --accent-soft: rgba(185, 162, 255, .09);
+    }
+
+    html { font-size: clamp(16px, 0.55vw + 10px, 21px); }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--body); font: 1rem/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+    a { color: inherit; }
+    .page { max-width: 60rem; margin: 0 auto; padding: 2rem 1.5rem 3.5rem; }
+
+    .top { display: flex; justify-content: flex-end; }
+    #theme { width: 1rem; height: 1rem; border-radius: 50%; border: 1.5px solid var(--muted); padding: 0; cursor: pointer;
+      background: linear-gradient(90deg, var(--muted) 50%, transparent 50%); }
+
+    header { text-align: center; padding: 1.5rem 0 .5rem; }
+    .kicker { margin: 0 0 .9rem; color: var(--muted); font-weight: 600; font-size: .95rem; }
+    h1 { margin: 0; font-size: 2.4rem; font-weight: 700; letter-spacing: -.035em; line-height: 1.15; color: var(--ink); }
+    h1 .acr { color: var(--accent); }
+    .authors { margin: 1.25rem 0 0; font-size: 1.1rem; font-weight: 600; color: var(--ink); }
+    .authors a { text-decoration: none; border-bottom: 1px solid var(--line); }
+    .authors a:hover { border-color: var(--ink); }
+    .authors .sep { color: var(--muted); font-weight: 400; margin: 0 .6rem; }
+    .affil { margin: .25rem 0 0; color: var(--muted); font-size: .95rem; }
+    .links { display: flex; flex-wrap: wrap; justify-content: center; gap: .6rem; margin-top: 1.5rem; }
+    .links a { display: inline-flex; align-items: center; gap: .45rem; padding: .45rem 1.05rem; border-radius: 999px;
+      border: 1px solid var(--line); background: var(--chip); color: var(--ink); font-weight: 600; font-size: .95rem; text-decoration: none; }
+    .links a:hover { border-color: var(--ink); }
+    .links a.primary { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+    .links a.primary:hover { opacity: .85; }
+    .links svg { width: 1rem; height: 1rem; }
+
+    .tldr { margin: 2.25rem auto 0; max-width: 46rem; padding: 1.25rem 1.5rem; border-radius: 1rem; background: var(--accent-soft);
+      border: 1px solid var(--line); font-size: 1.08rem; font-weight: 500; color: var(--ink); }
+    .tldr b { color: var(--accent); }
+
+    section { margin-top: 3rem; padding-top: 2.25rem; border-top: 1px solid var(--line); }
+    h2 { font-size: 1.6rem; font-weight: 700; letter-spacing: -.025em; line-height: 1.2; color: var(--ink); margin: 0 0 .5rem; }
+    .sub { margin: 0 0 1.5rem; color: var(--body); max-width: 48rem; }
+    .eq { font-family: var(--mono); font-size: .95em; white-space: nowrap; color: var(--ink); }
+
+    /* Figures are drawn on white, so they sit on a white card in both themes. */
+    .figs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    figure { margin: 0; }
+    figure img { display: block; width: 100%; height: auto; background: #fff; border: 1px solid var(--line); border-radius: .9rem; padding: .5rem; }
+    figcaption { margin-top: .55rem; color: var(--muted); font-size: .9rem; line-height: 1.45; }
+    figcaption b { color: var(--ink); font-weight: 650; }
+    figure.ours img { border-color: var(--accent); }
+
+    .points { list-style: none; margin: 1.5rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .points li { padding-top: .7rem; border-top: 2px solid var(--accent); font-size: .98rem; }
+    .points b { display: block; color: var(--ink); }
+
+    .tbl { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .95rem; font-variant-numeric: tabular-nums; }
+    th, td { padding: .5rem .75rem; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    th:first-child, td:first-child { text-align: left; padding-left: .5rem; }
+    thead th { color: var(--muted); font-weight: 600; font-size: .85rem; border-bottom: 1.5px solid var(--muted); }
+    tbody td { color: var(--body); }
+    tr.ours td { background: var(--accent-soft); color: var(--ink); font-weight: 650; }
+    tr.ours td:first-child { color: var(--accent); }
+    td .pm { color: var(--muted); font-weight: 400; font-size: .85em; }
+    .note { margin: .6rem 0 0; color: var(--muted); font-size: .85rem; }
+
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2.5rem; align-items: center; }
+    .pair p { margin: 0; }
+    .pair p + p { margin-top: .8rem; }
+    .pair.theta { margin-top: 2.25rem; }
+    .points.two { grid-template-columns: 1fr 1fr; }
+    table.cl { font-size: 1.02rem; }
+    table.cl td.o { background: var(--accent-soft); color: var(--ink); font-weight: 650; }
+    table.cl th.o { color: var(--accent); }
+    table.cl td.o:last-child { color: var(--accent); }
+    table.cl tr.flat td { color: var(--muted); }
+    h3 { margin: 0 0 .75rem; font-size: 1.1rem; font-weight: 700; color: var(--ink); letter-spacing: -.015em; }
+
+    .facts { display: grid; grid-template-columns: auto 1fr; gap: .45rem 1.5rem; margin: 0; font-size: .98rem; }
+    .facts dt { color: var(--muted); font-weight: 600; }
+    .facts dd { margin: 0; }
+
+    .bib { position: relative; }
+    pre { margin: 0; padding: 1.1rem 1.25rem; border-radius: .9rem; background: var(--chip); border: 1px solid var(--line);
+      font: .85rem/1.6 var(--mono); color: var(--ink); overflow-x: auto; }
+    #copy { position: absolute; top: .6rem; right: .6rem; padding: .25rem .7rem; border-radius: 999px; border: 1px solid var(--line);
+      background: var(--bg); color: var(--muted); font: 600 .8rem var(--sans); cursor: pointer; }
+    #copy:hover { color: var(--ink); border-color: var(--ink); }
+
+
+    @media (max-width: 760px) {
+      .page { padding: 1rem 1rem 2.5rem; }
+      h1 { font-size: 1.75rem; }
+      .authors .sep { display: block; height: 0; overflow: hidden; }
+      .figs, .points, .points.two, .pair { grid-template-columns: 1fr; }
+      .facts { grid-template-columns: 1fr; gap: .1rem; }
+      .facts dd { margin-bottom: .55rem; }
+    }
+  </style>
+  <script>
+    try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</head>
+<body>
+<main class="page">
+
+  <div class="top"><button id="theme" aria-label="Toggle light/dark theme" title="Toggle theme"></button></div>
+
+  <header>
+    <p class="kicker">Federated Continual Learning · arXiv 2026</p>
+    <h1><span class="acr">DROD</span>: Dual-Ratio Ordered Dropout for Federated Continual Learning on Heterogeneous Devices</h1>
+    <p class="authors"><a href="https://berksezer9.github.io">Berk Sezer</a><span class="sep">·</span>Özgür Soysal</p>
+    <p class="affil">Middle East Technical University · Stanford University</p>
+    <div class="links">
+      <a class="primary" href="https://arxiv.org/abs/2610.25220"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>Paper (arXiv)</a>
+      <a href="#bibtex">BibTeX</a>
+    </div>
+  </header>
+
+  <p class="tldr">Clients in a federation run models of different sizes, and every client's data keeps drifting to new classes. <b>DROD</b> gives each smaller client a sub-model cut along <b>two independent ratios</b> of each residual block instead of one width. At the same parameter and FLOP budget, it beats all 13 baseline configurations we compare, both in fleet mean and at every capacity tier. It stays ahead at every replay-buffer size and under every continual-learning method we test (ER, DER++, BiC and EWC), though under EWC all methods collapse alike.</p>
+
+  <section>
+    <h2>Method: two ratios instead of one width</h2>
+    <p class="sub">A residual block computes <span class="eq">y = ReLU(x + F(x))</span>. Width slicing, including <a href="https://arxiv.org/abs/2102.13451">FjORD</a>'s Ordered Dropout, narrows the carried stream <span class="eq">x</span> and the branch <span class="eq">F</span> together. DROD sets them apart: a <b>shortcut ratio</b> <span class="eq">s</span> sets the width of <span class="eq">x</span>, and a <b>branch ratio</b> <span class="eq">b</span> sets the hidden width of <span class="eq">F</span> as a fraction of it. The block's parameters and FLOPs scale as <span class="eq">b·s²</span>, so one budget <span class="eq">ρ</span> is a whole curve <span class="eq">b·s² = ρ</span>, not a single point.</p>
+    <div class="figs">
+      <figure>
+        <img src="figures/block_full.webp" alt="Full residual block: 64-channel input, 64-channel hidden layer, 64-channel output">
+        <figcaption><b>Full block</b> · <span class="eq">s = 1, b = 1</span></figcaption>
+      </figure>
+      <figure>
+        <img src="figures/block_fjord.webp" alt="Width slicing: input, hidden layer and output all narrowed to the same width">
+        <figcaption><b>Width slicing / FjORD</b> · shortcut and branch narrow together</figcaption>
+      </figure>
+      <figure class="ours">
+        <img src="figures/block_drod.webp" alt="DROD: input and output kept at 45 of 64 channels, hidden layer narrowed to 22 of 64">
+        <figcaption><b>DROD</b> (θ&nbsp;=&nbsp;0.5) · near-full shortcut (<span class="eq">s = 0.70</span>), low-rank branch (<span class="eq">b = 0.49</span>), same budget</figcaption>
+      </figure>
+    </div>
+    <div class="pair theta">
+      <div>
+        <h3>One knob along the budget curve: θ</h3>
+        <p>Every point on <span class="eq">b·s² = ρ</span> costs the same, so we trace the curve with a single coordinate <span class="eq">θ ∈ [0, 1]</span>: <span class="eq">s = ρ<sup>(1−θ)/2</sup></span>, <span class="eq">b = ρ<sup>θ</sup></span>. At θ&nbsp;=&nbsp;0 the shortcut and branch shrink together, which is width slicing (FjORD). As θ grows, the shortcut widens and the branch absorbs more of the cut, until θ&nbsp;=&nbsp;1 keeps the full shortcut.</p>
+        <p>θ&nbsp;=&nbsp;0.5 splits the cut evenly between the two (<span class="eq">s² = b = √ρ</span>). Of the values we test (0.25, 0.5, 0.75, 1), it is the most accurate at every replay-buffer total and budget we swept them on, so it is the DROD reported throughout: 31.3% class-IL ACC against 27.2–28.1% for the other θ.</p>
+      </div>
+      <figure>
+        <img src="figures/theta_curve.webp" alt="The iso-budget curve b·s² = ρ for the mid tier, from FjORD / width slicing at s = 0.5, b = 1 down to s = 1, b ≈ 0.24, with shortcut-tiering drawn as the b = 0 axis">
+        <figcaption>The budget curve for the mid tier (<span class="eq">ρ = 0.25</span>). Dots, left to right: θ&nbsp;=&nbsp;0 (FjORD), 0.25, 0.5, 0.75, 1. Shortcut-tiering (<span class="eq">b = 0</span>) is its limit, off the curve.</figcaption>
+      </figure>
+    </div>
+
+    <ul class="points two">
+      <li><b>Ordered Dropout on both ratios</b>At every local step a client samples a nested <span class="eq">(s, b)</span> pair its capacity can afford, as FjORD does with its single width.</li>
+      <li><b>No new server rule</b>Every smaller sub-model is a prefix of a larger one along both ratios, so the server keeps FjORD's prefix-sliced averaging.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Results</h2>
+    <p class="sub">Split-CIFAR-100, 10 tasks, class-incremental (one 100-way head, no task id). A ResNet-18 trained from scratch across 10 clients in three capacity tiers, all methods on one shared budget of 1.000 / 0.251 / 0.064 of the full model's FLOPs. Experience replay with 6,400 exemplars, mean ± sd over 3 seeds.</p>
+    <div class="tbl">
+      <table>
+        <thead>
+          <tr><th>Reduction × aggregation</th><th>Class-IL ACC ↑</th><th>Forgetting ↓</th><th>Task-IL ACC ↑</th></tr>
+        </thead>
+        <tbody>
+          <tr class="ours"><td>DROD (θ&nbsp;=&nbsp;0.5)</td><td>31.3 <span class="pm">± 1.6</span></td><td>25.1 <span class="pm">± 1.9</span></td><td>69.7 <span class="pm">± 2.0</span></td></tr>
+          <tr><td>Width × FjORD</td><td>27.4 <span class="pm">± 0.8</span></td><td>26.3 <span class="pm">± 0.4</span></td><td>66.2 <span class="pm">± 1.1</span></td></tr>
+          <tr><td>Shortcut × FjORD</td><td>25.2 <span class="pm">± 1.4</span></td><td>29.1 <span class="pm">± 1.2</span></td><td>63.9 <span class="pm">± 1.0</span></td></tr>
+          <tr><td>ScaleFL<sup>†</sup></td><td>21.5 <span class="pm">± 0.5</span></td><td>27.5 <span class="pm">± 0.7</span></td><td>58.2 <span class="pm">± 1.1</span></td></tr>
+          <tr><td>Width × FedAvg</td><td>19.3 <span class="pm">± 0.6</span></td><td>27.2 <span class="pm">± 0.2</span></td><td>55.2 <span class="pm">± 1.2</span></td></tr>
+          <tr><td>Width × FIARSE</td><td>19.1 <span class="pm">± 0.1</span></td><td>28.0 <span class="pm">± 0.2</span></td><td>55.2 <span class="pm">± 0.2</span></td></tr>
+          <tr><td>Width × FedRolex</td><td>17.4 <span class="pm">± 1.6</span></td><td>28.8 <span class="pm">± 0.9</span></td><td>52.0 <span class="pm">± 2.8</span></td></tr>
+          <tr><td>Depth × FjORD</td><td>16.5 <span class="pm">± 0.4</span></td><td>25.3 <span class="pm">± 0.2</span></td><td>50.5 <span class="pm">± 1.0</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Fleet means over the three tiers, in %. Selected rows of the paper's Table 1 (17 arms). <sup>†</sup>ScaleFL uses its own width/depth split and is not budget-matched.</p>
+
+    <ul class="points">
+      <li><b>Leads in every seed</b>DROD beats each of the other 16 arms in all three seeds, not just on average.</li>
+      <li><b>Every tier gains</b>Each of DROD's three tiers beats the matching tier of every baseline in every reported setting; the margin is usually widest at the smallest tier.</li>
+      <li><b>Either budget</b>DROD's parameters and FLOPs both sit within 0.5% of each tier's target, so the parameter-matched grid gives the same lead.</li>
+    </ul>
+
+  </section>
+
+  <section>
+    <h2>The lead holds across continual-learning methods</h2>
+    <p class="sub">DROD's novelty is on the federated side, so we check that it is not tied to one continual-learning method: the three leading geometries, each trained under four CL objectives on the same budget and the same 6,400-exemplar buffer.</p>
+    <div class="tbl">
+      <table class="cl">
+        <thead><tr><th>CL method</th><th class="o">DROD (θ&nbsp;=&nbsp;0.5)</th><th>Width × FjORD</th><th>Shortcut × FjORD</th><th class="o">DROD lead</th></tr></thead>
+        <tbody>
+          <tr><td>ER</td><td class="o">31.3 <span class="pm">± 1.6</span></td><td>27.4 <span class="pm">± 0.8</span></td><td>25.2 <span class="pm">± 1.4</span></td><td class="o">+3.8</td></tr>
+          <tr><td>DER++</td><td class="o">29.6 <span class="pm">± 0.1</span></td><td>27.5 <span class="pm">± 0.9</span></td><td>25.1 <span class="pm">± 1.0</span></td><td class="o">+2.1</td></tr>
+          <tr><td>BiC</td><td class="o">23.1 <span class="pm">± 0.8</span></td><td>20.5 <span class="pm">± 1.2</span></td><td>20.0 <span class="pm">± 0.7</span></td><td class="o">+2.6</td></tr>
+          <tr class="flat"><td>EWC</td><td>6.5 <span class="pm">± 0.1</span></td><td>6.1 <span class="pm">± 0.2</span></td><td>6.2 <span class="pm">± 0.1</span></td><td>+0.2</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Fleet-mean class-IL ACC (%), mean ± sd over 3 seeds; lead is over the next-best geometry. Under ER, DER++ and BiC the lead holds in every seed. Under EWC all three geometries collapse alike.</p>
+
+    <div class="pair">
+      <div>
+        <h3>And across replay-buffer sizes</h3>
+        <p>The buffer is the other resource a heterogeneous fleet has to divide. Sweeping its total from 3,200 to 12,800 exemplars, DROD stays above both baselines at every size, by 2.1 to 3.8 points over the best other geometry, including at the smallest buffer.</p>
+      </div>
+      <figure>
+        <img src="figures/buffer.webp" alt="Fleet-mean class-IL accuracy against replay-buffer total (3,200, 6,400, 12,800): DROD is above Width × FjORD and Shortcut × FjORD at every size">
+      </figure>
+    </div>
+  </section>
+
+  <section id="bibtex">
+    <h2>BibTeX</h2>
+    <div class="bib">
+      <button id="copy" type="button">Copy</button>
+<pre id="bib">@misc{sezer2026droddualratioordereddropout,
+      title={DROD: Dual-Ratio Ordered Dropout for Federated Continual Learning on Heterogeneous Devices},
+      author={Berk Sezer and Özgür Soysal},
+      year={2026},
+      eprint={2610.25220},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2610.25220},
+}</pre>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  document.getElementById('theme').addEventListener('click', function () {
+    var root = document.documentElement;
+    var dark = root.dataset.theme ? root.dataset.theme === 'dark'
+                                  : matchMedia('(prefers-color-scheme: dark)').matches;
+    var next = dark ? 'light' : 'dark';
+    root.dataset.theme = next;
+    try { localStorage.setItem('theme', next); } catch (e) {}
+  });
+  document.getElementById('copy').addEventListener('click', function () {
+    var btn = this;
+    navigator.clipboard.writeText(document.getElementById('bib').textContent).then(function () {
+      btn.textContent = 'Copied';
+      setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+    });
+  });
+</script>
+</body>
+</html>
